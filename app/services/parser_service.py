@@ -2,6 +2,7 @@
 Сервис для парсинга страниц Hugging Face Papers с использованием httpx
 """
 import asyncio
+import re
 import httpx
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional
@@ -91,16 +92,19 @@ class HFPapersParser:
     
     def _extract_crawl_date_from_url(self, url: str) -> Optional[str]:
         """Извлечение даты краулинга из URL"""
+
         # Формат: /papers/date/2024-12-01
         if "/papers/date/" in url:
             parts = url.split("/papers/date/")
             if len(parts) > 1:
                 return parts[1].split("/")[0]
+
         # Формат: /papers/week/2024-W50
         elif "/papers/week/" in url:
             parts = url.split("/papers/week/")
             if len(parts) > 1:
                 return parts[1].split("/")[0]
+
         # Формат: /papers/month/2024-12
         elif "/papers/month/" in url:
             parts = url.split("/papers/month/")
@@ -252,7 +256,6 @@ class HFPapersParser:
 class CrawlScheduler:
     """
     Планировщик задач краулинга.
-    Каждый эндпоинт (daily/weekly/monthly) ставит в очередь ровно ОДНУ страницу.
     """
     
     def __init__(self, db):
@@ -268,7 +271,7 @@ class CrawlScheduler:
     async def crawl_daily(self, date_param: str) -> Dict[str, Any]:
         """
         Краулинг страницы за конкретный день.
-        Ставит в очередь ровно ОДНУ страницу.
+        Ставит в очередь одну страницу.
         """
         url = f"{self.settings.crawl_base_url}/papers/date/{date_param}"
         
@@ -297,7 +300,7 @@ class CrawlScheduler:
     async def crawl_weekly(self, week: str) -> Dict[str, Any]:
         """
         Краулинг страницы за конкретную неделю.
-        Ставит в очередь ровно ОДНУ страницу.
+        Ставит в очередь одну страницу.
         """
         url = f"{self.settings.crawl_base_url}/papers/week/{week}"
         
@@ -326,7 +329,7 @@ class CrawlScheduler:
     async def crawl_monthly(self, month: str) -> Dict[str, Any]:
         """
         Краулинг страницы за конкретный месяц.
-        Ставит в очередь ровно ОДНУ страницу.
+        Ставит в очередь одну страницу.
         """
         url = f"{self.settings.crawl_base_url}/papers/month/{month}"
         
@@ -359,7 +362,7 @@ class CrawlScheduler:
     @staticmethod
     def detect_pattern(date_param: str) -> str:
         """
-        Определение паттерна по строке даты.
+        Определение паттерна по строке даты с использованием регулярных выражений.
         
         Паттерны:
         - daily: YYYY-MM-DD (например, 2026-03-02)
@@ -375,34 +378,16 @@ class CrawlScheduler:
         Raises:
             ValueError: Если формат даты не распознан
         """
-        # Проверяем monthly (YYYY-MM)
-        if len(date_param) == 7 and date_param[4] == "-":
-            try:
-                int(date_param[:4])
-                int(date_param[5:7])
-                return "monthly"
-            except ValueError:
-                pass
+        # Регулярные выражения для каждого паттерна
+        patterns = {
+            "daily": r"^\d{4}-\d{2}-\d{2}$",
+            "weekly": r"^\d{4}-W\d{2}$",
+            "monthly": r"^\d{4}-\d{2}$",
+        }
         
-        # Проверяем weekly (YYYY-Www)
-        if "-W" in date_param:
-            try:
-                year_part, week_part = date_param.split("-W")
-                int(year_part)
-                int(week_part)
-                return "weekly"
-            except (ValueError, IndexError):
-                pass
-        
-        # Проверяем daily (YYYY-MM-DD)
-        if len(date_param) == 10 and date_param[4] == "-" and date_param[7] == "-":
-            try:
-                int(date_param[:4])
-                int(date_param[5:7])
-                int(date_param[8:10])
-                return "daily"
-            except ValueError:
-                pass
+        for pattern_name, regex in patterns.items():
+            if re.match(regex, date_param):
+                return pattern_name
         
         raise ValueError(f"Не удалось определить паттерн для: {date_param}")
     
