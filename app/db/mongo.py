@@ -5,7 +5,7 @@ import pymongo
 from pymongo import MongoClient
 from pymongo.database import Database
 from typing import Generator
-from app.config import get_settings
+from app.config import get_settings, MONGO_INDEX_CRAWL_LOGS_TASK_ID, MONGO_INDEX_CRAWL_LOGS_STATUS, MONGO_INDEX_CRAWL_LOGS_START_TIME, MONGO_INDEX_PAPERS_PAPER_ID, MONGO_INDEX_PAPERS_ARXIV_ID, MONGO_INDEX_PAPERS_CRAWL_DATE
 
 
 # Синглтон для MongoClient
@@ -52,12 +52,12 @@ def init_db(client: MongoClient = None) -> Database:
     db = client[settings.mongo_db]
     
     # Создание индексов
-    db.crawl_logs.create_index("task_id", unique=True)
-    db.crawl_logs.create_index("status")
-    db.crawl_logs.create_index("start_time")
+    db.crawl_logs.create_index(MONGO_INDEX_CRAWL_LOGS_TASK_ID, unique=True)
+    db.crawl_logs.create_index(MONGO_INDEX_CRAWL_LOGS_STATUS)
+    db.crawl_logs.create_index(MONGO_INDEX_CRAWL_LOGS_START_TIME)
     
-    db.papers.create_index("paper_id")
-    db.papers.create_index("arxiv_id")
-    db.papers.create_index("crawl_date")
+    db.papers.create_index(MONGO_INDEX_PAPERS_PAPER_ID)
+    db.papers.create_index(MONGO_INDEX_PAPERS_ARXIV_ID)
+    db.papers.create_index(MONGO_INDEX_PAPERS_CRAWL_DATE)
     
     return db

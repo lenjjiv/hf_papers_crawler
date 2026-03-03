@@ -15,24 +15,17 @@ from app.config import get_settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Константы для ретраев
-MAX_RETRIES = 5
-INITIAL_DELAY = 1.0  # начальная задержка в секундах
-MAX_DELAY = 60.0  # максимальная задержка в секундах
-
 
 class HFPapersParser:
     """Парсер для Hugging Face Papers"""
     
-    BASE_URL = "https://huggingface.co"
-    
     def __init__(self):
         self.settings = get_settings()
         self.client = httpx.AsyncClient(
-            timeout=30.0,
+            timeout=self.settings.http_timeout,
             follow_redirects=True,
             headers={
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                "User-Agent": self.settings.http_user_agent
             }
         )
     
@@ -56,8 +49,11 @@ class HFPapersParser:
             httpx.HTTPStatusError: при исчерпании ретраев
         """
         last_exception = None
+        max_retries = self.settings.http_max_retries
+        initial_delay = self.settings.http_initial_delay
+        max_delay = self.settings.http_max_delay
         
-        for attempt in range(MAX_RETRIES):
+        for attempt in range(max_retries):
             try:
                 response = await self.client.request(method, url, **kwargs)
                 response.raise_for_status()
@@ -70,17 +66,17 @@ class HFPapersParser:
                     httpx.WriteTimeout,
                     httpx.PoolTimeout) as e:
                 last_exception = e
-                delay = min(INITIAL_DELAY * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
+                delay = min(initial_delay * (2 ** attempt) + random.uniform(0, 1), max_delay)
                 
                 logger.warning(
-                    f"[retry] Attempt {attempt + 1}/{MAX_RETRIES} failed for {url}: {type(e).__name__}. "
+                    f"[retry] Attempt {attempt + 1}/{max_retries} failed for {url}: {type(e).__name__}. "
                     f"Retrying in {delay:.2f}s..."
                 )
                 
-                if attempt < MAX_RETRIES - 1:
+                if attempt < max_retries - 1:
                     await asyncio.sleep(delay)
                 else:
-                    logger.error(f"[retry] All {MAX_RETRIES} attempts failed for {url}")
+                    logger.error(f"[retry] All {max_retries} attempts failed for {url}")
                     
             except httpx.HTTPStatusError as e:
                 # Для HTTP ошибок (4xx, 5xx) не делаем ретраи
@@ -121,7 +117,7 @@ class HFPapersParser:
         
         link_node = link_nodes[0]
         relative_path = link_node.get("href", "")
-        absolute_url = f"{self.BASE_URL}{relative_path}" if relative_path.startswith("/") else relative_path
+        absolute_url = f"{self.settings.crawl_base_url}{relative_path}" if relative_path.startswith("/") else relative_path
         
         # Заголовок
         title_nodes = link_node.xpath(".//text()")
@@ -274,7 +270,7 @@ class CrawlScheduler:
         Краулинг страницы за конкретный день.
         Ставит в очередь ровно ОДНУ страницу.
         """
-        url = f"{HFPapersParser.BASE_URL}/papers/date/{date_param}"
+        url = f"{self.settings.crawl_base_url}/papers/date/{date_param}"
         
         # Парсим страницу списка
         list_page_data = await self.parser.parse_list_page(url)
@@ -303,7 +299,7 @@ class CrawlScheduler:
         Краулинг страницы за конкретную неделю.
         Ставит в очередь ровно ОДНУ страницу.
         """
-        url = f"{HFPapersParser.BASE_URL}/papers/week/{week}"
+        url = f"{self.settings.crawl_base_url}/papers/week/{week}"
         
         # Парсим страницу списка
         list_page_data = await self.parser.parse_list_page(url)
@@ -332,7 +328,7 @@ class CrawlScheduler:
         Краулинг страницы за конкретный месяц.
         Ставит в очередь ровно ОДНУ страницу.
         """
-        url = f"{HFPapersParser.BASE_URL}/papers/month/{month}"
+        url = f"{self.settings.crawl_base_url}/papers/month/{month}"
         
         # Парсим страницу списка
         list_page_data = await self.parser.parse_list_page(url)
@@ -356,12 +352,9 @@ class CrawlScheduler:
             "crawl_date": month
         }
     
-    # Задержка между запросами (в секундах)
-    CRAWL_DELAY = 1.0
-    
     async def _apply_delay(self):
         """Применение задержки между запросами"""
-        await asyncio.sleep(self.CRAWL_DELAY)
+        await asyncio.sleep(self.settings.crawl_delay)
     
     @staticmethod
     def detect_pattern(date_param: str) -> str:

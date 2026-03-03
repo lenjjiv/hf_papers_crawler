@@ -8,8 +8,10 @@ from pymongo.database import Database
 from app.db.mongo import get_db
 from app.models.schemas import TaskResponse, TaskListResponse, ErrorResponse
 from app.services.task_service import TaskService
+from app.config import get_settings
 
 router = APIRouter()
+settings = get_settings()
 
 
 def get_task_service(db: Database = Depends(get_db)) -> TaskService:
@@ -25,9 +27,17 @@ def get_task_service(db: Database = Depends(get_db)) -> TaskService:
 )
 def get_all_tasks(
     service: TaskService = Depends(get_task_service),
-    limit: int = Query(100, ge=1, le=1000, description="Максимальное количество задач"),
+    limit: int = Query(default=None, ge=1, le=1000, description="Максимальное количество задач"),
     skip: int = Query(0, ge=0, description="Количество задач для пропуска")
 ):
+    """
+    Получение списка всех задач
+    
+    Возвращает все задачи с пагинацией
+    """
+    # Используем значение по умолчанию из конфига если limit не передан
+    if limit is None:
+        limit = settings.task_default_limit
     """
     Получение списка всех задач
     

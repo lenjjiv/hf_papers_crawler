@@ -25,7 +25,7 @@ class TaskService:
     def __init__(self, db: Database):
         self.db = db
         self.settings = get_settings()
-        self.executor = ThreadPoolExecutor(max_workers=4)
+        self.executor = ThreadPoolExecutor(max_workers=self.settings.task_max_workers)
         self.collection = db.crawl_logs
     
     def create_task(self, task_data: TaskCreate) -> str:

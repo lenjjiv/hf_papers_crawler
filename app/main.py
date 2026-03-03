@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from app.api import tasks, crawl
 from app.db.mongo import get_mongo_client, init_db, close_mongo_client
+from app.config import get_settings
 
 
 @asynccontextmanager
@@ -19,10 +20,12 @@ async def lifespan(app: FastAPI):
     close_mongo_client()
 
 
+settings = get_settings()
+
 app = FastAPI(
     title="Hugging Face Papers Crawler API",
     description="API для управления процессом сбора данных с Hugging Face Papers",
-    version="1.0.0",
+    version=settings.api_version,
     lifespan=lifespan,
 )
 
@@ -36,7 +39,7 @@ async def root():
     """Корневой эндпоинт"""
     return {
         "message": "Hugging Face Papers Crawler API",
-        "version": "1.0.0",
+        "version": settings.api_version,
         "docs": "/docs"
     }
 
