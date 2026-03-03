@@ -1,17 +1,17 @@
 # FastAPI приложение
-fastapi>=0.109.0
-uvicorn>=0.27.0
-pydantic>=2.5.3
-pydantic-settings>=2.1.0
+fastapi==0.135.1
+uvicorn==0.41.0
+pydantic==2.12.5
+pydantic-settings==2.13.1
 
 # MongoDB
-pymongo>=4.6.1
+pymongo==4.16.0
 
 # HTTP клиент
-httpx>=0.26.0
+httpx==0.28.1
 
 # HTML парсинг
-lxml>=5.1.0
+lxml==6.0.2
 
 # Утилиты
-python-dateutil>=2.8.2
+python-dateutil==2.9.0.post0
